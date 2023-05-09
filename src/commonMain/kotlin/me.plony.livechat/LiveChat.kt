@@ -2,7 +2,6 @@ package me.plony.livechat
 
 import io.ktor.client.*
 import io.ktor.client.call.*
-import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -44,7 +43,7 @@ class LiveChat(val baseUrl: String, val httpClient: HttpClient = createDefaultCl
             ignoreUnknownKeys = true
             encodeDefaults = true
         }
-        fun createDefaultClient() = HttpClient(CIO) {
+        fun createDefaultClient() = HttpClient {
             install(ContentNegotiation) {
                 json(JSON)
             }

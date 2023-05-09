@@ -1,6 +1,7 @@
 plugins {
     kotlin("multiplatform") version "1.8.20"
     kotlin("plugin.serialization") version "1.8.10"
+    `maven-publish`
 }
 
 group = "me.plony"
@@ -20,7 +21,7 @@ kotlin {
             useJUnitPlatform()
         }
     }
-    js(BOTH) {
+    js(IR) {
         browser {
             commonWebpackConfig {
                 cssSupport {
@@ -43,7 +44,7 @@ kotlin {
         val commonMain by getting {
             dependencies {
                 implementation("io.ktor:ktor-client-core:$ktor_version")
-                implementation("io.ktor:ktor-client-cio:$ktor_version")
+//                implementation("io.ktor:ktor-client-cio:$ktor_version")
                 implementation("io.ktor:ktor-client-content-negotiation:$ktor_version")
                 implementation("io.ktor:ktor-serialization-kotlinx-json:$ktor_version")
                 implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
