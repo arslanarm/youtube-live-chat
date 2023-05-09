@@ -45,11 +45,25 @@ we need to create a while loop and constantly ask for more messages
 ```kotlin
 while (true) {
     val messages = try {
-        chat.fetchNextMessages() ?: continue
+        chat.nextMessages() ?: continue
     } catch (e: StreamIsClosed) {
         println("Stream ended")
         break
     }
-    println(messages.joinToString("\n") { "${it.author}: ${it.message}" })
+    println(messages.joinToString("\n") { "${it.authorName}: ${it.message}" })
 }
 ```
+
+You can pass the OutputStrategy to the LiveChat
+```kotlin
+suspend fun main() {
+    val chat = LiveChat("https://www.youtube.com/watch?v=jfKfPfyJRdk", ColdFlowOutputStrategy())
+
+    chat.nextMessages()
+        .onEach { 
+            println("${it.authorName} : ${it.message}")
+        }
+        .collect()
+}
+```
+It will change the behaviour of the `nextMessages` method
