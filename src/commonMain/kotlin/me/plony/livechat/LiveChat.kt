@@ -16,13 +16,29 @@ import kotlinx.serialization.json.*
 import me.plony.livechat.exceptions.FetchError
 import me.plony.livechat.exceptions.LiveChatInitializationError
 import me.plony.livechat.exceptions.StreamIsClosed
+import me.plony.livechat.output.OutputStrategy
+import me.plony.livechat.output.PlainOutputStrategy
 import me.plony.livechat.serialization.ChatMessages
 import me.plony.livechat.serialization.YoutubeConfiguration
+import me.plony.livechat.timeout.DelayTimeoutStrategy
+import me.plony.livechat.timeout.TimeoutStrategy
 import kotlin.properties.Delegates
+import kotlin.time.Duration.Companion.microseconds
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
-class LiveChat(val baseUrl: String, val httpClient: HttpClient = createDefaultClient()) {
+fun LiveChat(
+    baseUrl: String,
+    httpClient: HttpClient = LiveChat.createDefaultClient(),
+    timeoutStrategy: TimeoutStrategy = DelayTimeoutStrategy()
+) = LiveChat(baseUrl, PlainOutputStrategy(), httpClient, timeoutStrategy)
+
+class LiveChat<T>(
+    val baseUrl: String,
+    val outputStrategy: OutputStrategy<T>,
+    val httpClient: HttpClient = createDefaultClient(),
+    val timeoutStrategy: TimeoutStrategy = DelayTimeoutStrategy(),
+) {
     companion object {
         val INITIAL_DATA_REGEX =
             Regex("(?:window\\s*\\[\\s*[\"']ytInitialData[\"']\\s*]|ytInitialData)\\s*=\\s*(\\{.+?})\\s*;\\s*(?:var\\s+meta|</script|\\n)")
@@ -52,7 +68,6 @@ class LiveChat(val baseUrl: String, val httpClient: HttpClient = createDefaultCl
 
     var continuationInfo: String by Delegates.notNull()
     var cfgData: YoutubeConfiguration by Delegates.notNull()
-    var nextUpdate: Instant? = null
 
     suspend fun init() {
         // Get HTML Page of the stream
@@ -85,19 +100,20 @@ class LiveChat(val baseUrl: String, val httpClient: HttpClient = createDefaultCl
         continuationInfo = subMenuItems[1].jsonObject.getByKeys(CONTINUATION_INFO_PATH)?.jsonPrimitive?.content
             ?: throw LiveChatInitializationError("Cannot find first continuation info")
         cfgData = JSON.decodeFromString(cfgJsonData)
+
+        outputStrategy.init(this)
     }
 
-    suspend fun fetchNextMessages(): List<ChatMessage>? {
+    suspend fun nextMessages(): T = outputStrategy.generateOutput()
+
+    internal suspend fun fetchNextMessages(): List<ChatMessage>? {
         // Require them to be not null
         cfgData
         continuationInfo
 
         // Every call to live chat api returns a timeout that we should follow
         // Wait for the timeout that was given from the previous time
-        nextUpdate?.let {
-            val now = Clock.System.now()
-            if (now < it) delay(it - now)
-        }
+        timeoutStrategy.wait()
 
         // Call the API
         val apiUrl = "https://www.youtube.com/youtubei/v1/live_chat/get_live_chat?key=${cfgData.innertubeApiKey}"
@@ -162,7 +178,7 @@ class LiveChat(val baseUrl: String, val httpClient: HttpClient = createDefaultCl
             this.continuationInfo = newContinuation.timedContinuationData.continuation
             newContinuation.timedContinuationData.timeoutMs
         }
-        nextUpdate = Clock.System.now() + if (timeout > 0) timeout.milliseconds else 1.seconds
+        timeoutStrategy.setNewTimeout(if (timeout > 0) timeout.milliseconds else 1.seconds)
         return chatMessages
     }
 
