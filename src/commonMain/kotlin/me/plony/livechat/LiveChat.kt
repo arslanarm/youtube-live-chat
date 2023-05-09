@@ -102,10 +102,12 @@ class LiveChat(val baseUrl: String, val httpClient: HttpClient = createDefaultCl
         // Call the API
         val apiUrl = "https://www.youtube.com/youtubei/v1/live_chat/get_live_chat?key=${cfgData.innertubeApiKey}"
         val response = httpClient.post(apiUrl) {
-            setBody(Context(
+            setBody(
+                Context(
                 cfgData.innertubeContext,
                 continuationInfo
-            ))
+            )
+            )
             contentType(ContentType.Application.Json)
         }
 
