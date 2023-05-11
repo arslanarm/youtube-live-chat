@@ -12,7 +12,7 @@ data class ChatMessages(
     ) {
         @Serializable
         data class LiveChatContinuation(
-            val actions: List<Action>,
+            val actions: List<Action>? = null,
             val continuations: List<ContinuationChat>
         )
     }

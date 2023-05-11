@@ -120,9 +120,9 @@ class LiveChat<T>(
         val response = httpClient.post(apiUrl) {
             setBody(
                 Context(
-                cfgData.innertubeContext,
-                continuationInfo
-            )
+                    cfgData.innertubeContext,
+                    continuationInfo
+                )
             )
             contentType(ContentType.Application.Json)
         }
@@ -132,10 +132,11 @@ class LiveChat<T>(
             return null
         if (response.status != HttpStatusCode.OK)
             throw FetchError("Status code: ${response.status}")
-
         // Convert innertube api's data schemes to our scheme
-        val chatMessageInfo = response.body<ChatMessages>()
-        val actions = chatMessageInfo.continuationContents.liveChatContinuation.actions
+        val chatMessageInfo = runCatching { response.body<ChatMessages>() }
+            .onFailure { println(response.bodyAsText()) }
+            .getOrThrow()
+        val actions = chatMessageInfo.continuationContents.liveChatContinuation.actions ?: return null
         val chatMessages = mutableListOf<ChatMessage>()
         for (action in actions) {
             if (action.addChatItemAction == null) continue
@@ -171,14 +172,15 @@ class LiveChat<T>(
             throw StreamIsClosed()
         val newContinuation = chatMessageInfo.continuationContents.liveChatContinuation.continuations[0]
         // Figure out the necessary timeout
-        val timeout = if (newContinuation.timedContinuationData == null) {
+        if (newContinuation.timedContinuationData == null) {
             this.continuationInfo = newContinuation.invalidationContinuationData!!.continuation
-            newContinuation.invalidationContinuationData.timeoutMs
+            val timeout = newContinuation.invalidationContinuationData.timeoutMs
+            timeoutStrategy.setInvalidationTimeout(timeout.milliseconds)
         } else {
             this.continuationInfo = newContinuation.timedContinuationData.continuation
-            newContinuation.timedContinuationData.timeoutMs
+            val timeout =  newContinuation.timedContinuationData.timeoutMs
+            timeoutStrategy.setTimedTimeout(timeout.milliseconds)
         }
-        timeoutStrategy.setNewTimeout(if (timeout > 0) timeout.milliseconds else 1.seconds)
         return chatMessages
     }
 

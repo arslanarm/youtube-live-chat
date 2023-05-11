@@ -6,7 +6,7 @@ import kotlinx.datetime.Clock
 class DelayTimeoutStrategy : TimeoutStrategy() {
 
     override suspend fun wait() {
-        nextTime?.let {
+        (invalidationTimeout ?: timedTimeout)?.let {
             delay(Clock.System.now() - it)
         }
     }
